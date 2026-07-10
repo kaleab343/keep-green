@@ -1,0 +1,40 @@
+name: daily-green
+
+# Keeps the GitHub contribution grid green by committing once a day.
+# IMPORTANT: for a commit to count on YOUR contribution graph, its author
+# email must be an email verified on your GitHub account. That's why we set
+# git user.email below — NOT the github-actions[bot] identity (bot commits
+# do NOT count). Edit COMMIT_NAME / COMMIT_EMAIL to your verified GitHub email.
+
+on:
+  schedule:
+    # Runs daily. Two times because GitHub delays/skips cron under load —
+    # committing twice makes a missed day far less likely. (Multiple commits
+    # in one day still = one green square; that's fine.)
+    - cron: "17 6 * * *"    # 06:17 UTC
+    - cron: "42 18 * * *"   # 18:42 UTC
+  workflow_dispatch: {}      # lets you trigger it manually from the Actions tab
+
+permissions:
+  contents: write
+
+jobs:
+  commit:
+    runs-on: ubuntu-latest
+    env:
+      COMMIT_NAME: "kaleab343"
+      COMMIT_EMAIL: "eden@betatechhub.com"   # <-- MUST be verified on your GitHub account
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Make a daily commit
+        run: |
+          set -e
+          git config user.name  "$COMMIT_NAME"
+          git config user.email "$COMMIT_EMAIL"
+          # append a timestamped line so there's always something to commit
+          echo "green $(date -u '+%Y-%m-%d %H:%M:%S') UTC" >> activity.log
+          git add activity.log
+          # commit only if there's a change (there always will be)
+          git commit -m "chore: daily activity $(date -u '+%Y-%m-%d')" || { echo "nothing to commit"; exit 0; }
+          git push
