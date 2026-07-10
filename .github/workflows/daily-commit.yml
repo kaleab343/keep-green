@@ -23,7 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       COMMIT_NAME: "kaleab343"
-      COMMIT_EMAIL: "eden@betatechhub.com"   # <-- MUST be verified on your GitHub account
+      COMMIT_EMAIL: "kaleab.lala123@gmail.com"   # <-- MUST be verified on your GitHub account
     steps:
       - uses: actions/checkout@v4
 
