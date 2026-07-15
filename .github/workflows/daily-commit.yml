@@ -1,19 +1,20 @@
 name: daily-green
 
-# Keeps the GitHub contribution grid green by committing once a day.
-# IMPORTANT: for a commit to count on YOUR contribution graph, its author
-# email must be an email verified on your GitHub account. That's why we set
-# git user.email below — NOT the github-actions[bot] identity (bot commits
-# do NOT count). Edit COMMIT_NAME / COMMIT_EMAIL to your verified GitHub email.
+# Keeps the GitHub contribution grid green with a RANDOM number of commits per
+# day (between 2 and 30) so activity looks natural instead of a flat "1/day".
+#
+# The daily count is derived deterministically from the date, so the two
+# scheduled runs agree on the same target and top up to it (they never double
+# it, and if one run is skipped the other still fills the day).
+#
+# IMPORTANT: a commit only counts on YOUR contribution graph if its author email
+# is verified on your GitHub account — set below, NOT github-actions[bot].
 
 on:
   schedule:
-    # Runs daily. Two times because GitHub delays/skips cron under load —
-    # committing twice makes a missed day far less likely. (Multiple commits
-    # in one day still = one green square; that's fine.)
     - cron: "17 6 * * *"    # 06:17 UTC
-    - cron: "42 18 * * *"   # 18:42 UTC
-  workflow_dispatch: {}      # lets you trigger it manually from the Actions tab
+    - cron: "42 18 * * *"   # 18:42 UTC (backup in case the morning run is skipped)
+  workflow_dispatch: {}      # manual trigger from the Actions tab
 
 permissions:
   contents: write
@@ -26,15 +27,34 @@ jobs:
       COMMIT_EMAIL: "kaleab.lala123@gmail.com"   # <-- MUST be verified on your GitHub account
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0     # need full history to count today's commits
 
-      - name: Make a daily commit
+      - name: Make a random number of commits (2–30/day)
         run: |
           set -e
           git config user.name  "$COMMIT_NAME"
           git config user.email "$COMMIT_EMAIL"
-          # append a timestamped line so there's always something to commit
-          echo "green $(date -u '+%Y-%m-%d %H:%M:%S') UTC" >> activity.log
-          git add activity.log
-          # commit only if there's a change (there always will be)
-          git commit -m "chore: daily activity $(date -u '+%Y-%m-%d')" || { echo "nothing to commit"; exit 0; }
+
+          # Deterministic per-day target in [2,30] (same for both daily runs).
+          SEED="$(date -u +%Y%m%d)"
+          TARGET=$(( 2 + (10#$SEED % 29) ))
+
+          # How many commits already made today (by any earlier run)?
+          SINCE="$(date -u +%Y-%m-%d)T00:00:00Z"
+          ALREADY="$(git log --since="$SINCE" --author="$COMMIT_EMAIL" --oneline | wc -l | tr -d ' ')"
+          NEED=$(( TARGET - ALREADY ))
+          echo "date=$SEED  target=$TARGET  already=$ALREADY  need=$NEED"
+
+          if [ "$NEED" -le 0 ]; then
+            echo "today's target already met — nothing to do"; exit 0
+          fi
+
+          for i in $(seq 1 "$NEED"); do
+            n=$(( ALREADY + i ))
+            echo "green $(date -u '+%Y-%m-%d %H:%M:%S') UTC  ${n}/${TARGET}" >> activity.log
+            git add activity.log
+            git commit -q -m "chore: daily activity $(date -u '+%Y-%m-%d') (${n}/${TARGET})"
+          done
           git push
+          echo "pushed $NEED commit(s); day total now $TARGET"
