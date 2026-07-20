@@ -37,8 +37,12 @@ jobs:
           git config user.email "$COMMIT_EMAIL"
 
           # Deterministic per-day target in [2,30] (same for both daily runs).
+          # NOTE: don't use `date % 29` — dates are sequential, so the modulo is
+          # also sequential (…14,15,16…), not random. Hash the date first so
+          # consecutive days land on unrelated values, then map into [2,30].
           SEED="$(date -u +%Y%m%d)"
-          TARGET=$(( 2 + (10#$SEED % 29) ))
+          HASH="$(printf '%s' "$SEED" | sha256sum | tr -dc '0-9' | cut -c1-8)"
+          TARGET=$(( 2 + (10#$HASH % 29) ))
 
           # How many commits already made today (by any earlier run)?
           SINCE="$(date -u +%Y-%m-%d)T00:00:00Z"
